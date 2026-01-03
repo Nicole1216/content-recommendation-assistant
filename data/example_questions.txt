@@ -1,0 +1,10 @@
+# Example Questions for Sales Enablement Assistant
+
+## Example 1: Catalog Discovery
+Do we have GenAI content for non-technical roles?
+
+## Example 2: Recommendation
+Customer wants to upskill 200 Data Analysts in 6 months—what should I propose?
+
+## Example 3: Skill Validation
+Do you cover Python hands-on with real projects? What tools are used and what are the prerequisites?
