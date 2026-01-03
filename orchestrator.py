@@ -7,6 +7,7 @@ from schemas.responses import CriticDecision
 from schemas.evidence import Evidence
 from retrieval.catalog_provider import CatalogProvider
 from retrieval.csv_index import CSVIndex
+from retrieval.real_csv_provider import RealCSVProvider
 from agents.router import RouterAgent
 from agents.catalog_search import CatalogSearchAgent
 from agents.csv_details import CSVDetailsAgent
@@ -29,13 +30,18 @@ class SalesEnablementOrchestrator:
 
         # Initialize retrieval layer
         self.catalog_provider = CatalogProvider()
-        self.csv_index = CSVIndex(csv_path=self.settings.csv_path)
-        self.csv_index.load()
+
+        # Use RealCSVProvider if csv_path is provided, otherwise use mock
+        if self.settings.csv_path:
+            self.csv_provider = RealCSVProvider(csv_path=self.settings.csv_path)
+        else:
+            self.csv_provider = CSVIndex(csv_path=None)
+            self.csv_provider.load()
 
         # Initialize agents
         self.router = RouterAgent()
         self.catalog_search = CatalogSearchAgent(self.catalog_provider)
-        self.csv_details = CSVDetailsAgent(self.csv_index)
+        self.csv_details = CSVDetailsAgent(self.csv_provider)
         self.comparator = ComparatorAgent()
         self.composer = ComposerAgent()
         self.critic = CriticAgent()

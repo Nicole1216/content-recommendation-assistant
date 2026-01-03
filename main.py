@@ -31,7 +31,7 @@ def main():
     parser.add_argument(
         "--csv-path",
         type=str,
-        help="Path to CSV file (optional in Phase 1)"
+        help="Path to CSV file (Phase 2: uses real CSV if provided, otherwise uses mock data)"
     )
     parser.add_argument(
         "--top-k",

@@ -1,0 +1,46 @@
+# CSV Column Mapping Configuration
+# Maps logical field names to actual CSV column names
+# Note: Some column names have trailing spaces - must match exactly
+
+program:
+  program_key: ["Program Key"]
+  program_title: ["Generic Program Title "]  # Has trailing space
+  program_type: ["Program Type"]
+  program_duration_hours: ["Program Duration Hours "]  # Has trailing space
+  program_summary: ["Summary"]
+  program_prereq_skills: ["Prerequisite Skills"]
+  difficulty_level: ["Difficulty Level Modified"]
+  primary_school: ["Primary School"]
+  persona: ["Persona"]
+  program_url: ["Udacity Program Url"]
+  gtm_array: ["GTM Array"]
+  partners: ["Partners"]
+  clients: ["Clients"]
+  in_consumer_catalog: ["In Consumer Catalog "]  # Has trailing space
+  in_ent_catalog: ["in Ent Catalog "]  # Has trailing space
+  version: ["Version"]
+  version_released_at: ["Version Released At"]
+  program_category: ["Program Category"]
+  syllabus_overview: ["Syllabus Overview"]
+  total_active_enrollments: ["Total Active Enrollments"]
+
+course:
+  course_key: ["Course Key"]
+  course_title: ["Course Title"]
+  course_summary: ["Course Summary"]
+  course_prereq_skills: ["Course Prerequisite Skills"]
+  course_skills_array: ["Course Skills Array"]
+  course_skills_subject_array: ["Course Skills Subject Array"]
+  third_party_tools: ["Third Party Tools"]
+  course_duration_hours: ["Course Duration Hours"]
+  software_requirements: ["Software Requirements"]
+  hardware_requirements: ["Hardware Requirements"]
+
+lesson:
+  lesson_key: ["Lesson Key"]
+  lesson_title: ["Lesson Title"]
+  lesson_summary: ["Lesson Summary"]
+  lesson_duration_hours: ["Lesson Duration Hours"]
+  project_id: ["Project Id "]  # Has trailing space
+  project_title: ["Project Title "]  # Has trailing space
+  concept_titles: ["concept_titles"]
