@@ -280,6 +280,116 @@ class RealCSVProvider:
 
         self.skill_vocabulary = sorted(list(all_skills))
 
+    def _extract_intent(self, query: str) -> dict:
+        """
+        Extract intent from transition/upskilling queries.
+
+        Detects patterns like:
+        - "from X to Y" / "from X into Y"
+        - "become a Y" / "become Y"
+        - "transition to Y" / "move to Y"
+        - "upskill to Y" / "train as Y"
+        - "to be Y" / "to be a Y"
+
+        Returns:
+            dict with 'target_terms' (boosted) and 'source_terms' (deprioritized)
+        """
+        import re
+        query_lower = query.lower()
+
+        target_terms = []
+        source_terms = []
+
+        # Pattern: "from X to/into Y" - X is source, Y is target
+        from_to_match = re.search(
+            r'from\s+(?:a\s+)?(.+?)\s+(?:to|into)\s+(?:a\s+)?(.+?)(?:\.|,|$|\s+(?:they|who|that|and|but))',
+            query_lower
+        )
+        if from_to_match:
+            source_terms.extend(re.findall(r'\b[a-z]+\b', from_to_match.group(1)))
+            target_terms.extend(re.findall(r'\b[a-z]+\b', from_to_match.group(2)))
+
+        # Pattern: "to be (a) Y" - Y is target
+        to_be_match = re.search(
+            r'to\s+be\s+(?:a\s+)?(.+?)(?:\.|,|$|\s+(?:they|who|that|and|but))',
+            query_lower
+        )
+        if to_be_match:
+            target_terms.extend(re.findall(r'\b[a-z]+\b', to_be_match.group(1)))
+
+        # Pattern: "become (a) Y" - Y is target
+        become_match = re.search(
+            r'become\s+(?:a\s+)?(.+?)(?:\.|,|$|\s+(?:they|who|that|and|but))',
+            query_lower
+        )
+        if become_match:
+            target_terms.extend(re.findall(r'\b[a-z]+\b', become_match.group(1)))
+
+        # Pattern: "transition/move/switch to Y" - Y is target
+        transition_match = re.search(
+            r'(?:transition|move|switch)\s+to\s+(?:a\s+)?(.+?)(?:\.|,|$|\s+(?:they|who|that|and|but))',
+            query_lower
+        )
+        if transition_match:
+            target_terms.extend(re.findall(r'\b[a-z]+\b', transition_match.group(1)))
+
+        # Pattern: "upskill/train (them/people) as/to be Y" - Y is target
+        upskill_match = re.search(
+            r'(?:upskill|train|reskill).*?(?:as|to\s+be)\s+(?:a\s+)?(.+?)(?:\.|,|$|\s+(?:they|who|that|and|but))',
+            query_lower
+        )
+        if upskill_match:
+            target_terms.extend(re.findall(r'\b[a-z]+\b', upskill_match.group(1)))
+
+        # Pattern: "upskill/train X to be Y" - X is source (current role), Y is target
+        upskill_role_match = re.search(
+            r'(?:upskill|train|reskill)\s+(?:\d+\s+)?(?:of\s+)?(?:my\s+|our\s+)?(.+?)\s+to\s+(?:be\s+)?(?:a\s+)?(.+?)(?:\.|,|$|\s+(?:they|who|that|and|but))',
+            query_lower
+        )
+        if upskill_role_match:
+            source_terms.extend(re.findall(r'\b[a-z]+\b', upskill_role_match.group(1)))
+            target_terms.extend(re.findall(r'\b[a-z]+\b', upskill_role_match.group(2)))
+
+        # Pattern: "learn Y" / "learning Y" - Y is target
+        learn_match = re.search(
+            r'(?:learn|learning)\s+(?:about\s+)?(.+?)(?:\.|,|$|\s+(?:they|who|that|and|but))',
+            query_lower
+        )
+        if learn_match:
+            target_terms.extend(re.findall(r'\b[a-z]+\b', learn_match.group(1)))
+
+        # Pattern: "already know/have X" - X is existing skill (source)
+        already_match = re.search(
+            r'already\s+(?:know|have|has|knowing|having|experienced|familiar)\s+(?:with\s+)?(.+?)(?:\.|,|$|\s+(?:they|who|that|and|but|what))',
+            query_lower
+        )
+        if already_match:
+            source_terms.extend(re.findall(r'\b[a-z]+\b', already_match.group(1)))
+
+        # Pattern: "know/knows X" - X is existing skill (source)
+        know_match = re.search(
+            r'(?:they|who|people)\s+(?:already\s+)?know(?:s)?\s+(.+?)(?:\.|,|$|\s+(?:and|but|what))',
+            query_lower
+        )
+        if know_match:
+            source_terms.extend(re.findall(r'\b[a-z]+\b', know_match.group(1)))
+
+        # Filter out stop words from extracted terms
+        stop_words = {'a', 'an', 'the', 'be', 'is', 'are', 'as', 'to', 'for', 'and', 'or'}
+        target_terms = [t for t in target_terms if t not in stop_words and len(t) > 1]
+        source_terms = [t for t in source_terms if t not in stop_words and len(t) > 1]
+
+        # Remove duplicates while preserving order
+        seen = set()
+        target_terms = [t for t in target_terms if not (t in seen or seen.add(t))]
+        seen = set()
+        source_terms = [t for t in source_terms if not (t in seen or seen.add(t))]
+
+        return {
+            'target_terms': target_terms,
+            'source_terms': source_terms
+        }
+
     def search_programs(
         self,
         query: str,
@@ -309,6 +419,11 @@ class RealCSVProvider:
         import re
         query_terms = re.findall(r'\b[a-z]+\b', query_lower)
 
+        # Extract intent (target vs source skills for transition queries)
+        intent = self._extract_intent(query)
+        target_terms = set(intent['target_terms'])
+        source_terms = set(intent['source_terms'])
+
         # Filter out common stop words that cause false matches
         stop_words = {
             'i', 'we', 'you', 'they', 'he', 'she', 'it', 'the', 'a', 'an',
@@ -325,9 +440,15 @@ class RealCSVProvider:
         }
         query_terms = [t for t in query_terms if t not in stop_words and len(t) > 1]
 
-        # Phase 3: Semantic resolution
+        # If we have target terms from intent detection, prioritize them
+        # and optionally exclude source terms from matching
+        if target_terms:
+            # Remove source terms from query to avoid matching what user already has
+            query_terms = [t for t in query_terms if t not in source_terms]
+
+        # Phase 3: Semantic resolution (skip if we have target intent to avoid adding source-related terms)
         semantic_result = None
-        if self.semantic_resolver:
+        if self.semantic_resolver and not target_terms:
             semantic_result = self.semantic_resolver.resolve(query)
             # Add normalized skills and expansions to search terms
             if semantic_result.normalized_skills:
@@ -359,7 +480,14 @@ class RealCSVProvider:
                 term_pattern = re.compile(r'\b' + re.escape(term) + r'\b', re.IGNORECASE)
                 for skill in prog_entity.skills_union:
                     if term_pattern.search(skill):
-                        score += 10.0  # Highest weight
+                        # Determine weight based on intent
+                        if term in target_terms:
+                            weight = 25.0  # Boost target terms significantly
+                        elif term in source_terms:
+                            weight = 2.0   # Deprioritize source terms
+                        else:
+                            weight = 10.0  # Normal weight
+                        score += weight
                         matched_terms.add(term)
                         if skill not in matched_skills:
                             matched_skills.append(skill)
@@ -388,7 +516,14 @@ class RealCSVProvider:
                     searchable = f"{course_entity.course_title} {course_entity.course_summary or ''}"
                     for term in query_terms:
                         if re.search(r'\b' + re.escape(term) + r'\b', searchable, re.IGNORECASE):
-                            score += 3.0  # Medium weight
+                            # Determine weight based on intent
+                            if term in target_terms:
+                                weight = 8.0  # Boost target terms
+                            elif term in source_terms:
+                                weight = 1.0  # Deprioritize source terms
+                            else:
+                                weight = 3.0  # Normal weight
+                            score += weight
                             matched_terms.add(term)
                             if 'Course Title' not in source_columns:
                                 source_columns.append('Course Title')
@@ -397,7 +532,14 @@ class RealCSVProvider:
             searchable_prog = f"{prog_entity.program_title} {prog_entity.program_summary or ''}"
             for term in query_terms:
                 if re.search(r'\b' + re.escape(term) + r'\b', searchable_prog, re.IGNORECASE):
-                    score += 2.0  # Medium weight
+                    # Determine weight based on intent
+                    if term in target_terms:
+                        weight = 6.0  # Boost target terms
+                    elif term in source_terms:
+                        weight = 0.5  # Deprioritize source terms
+                    else:
+                        weight = 2.0  # Normal weight
+                    score += weight
                     matched_terms.add(term)
                     if 'Program Title' not in source_columns:
                         source_columns.append('Program Title')
