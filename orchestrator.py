@@ -94,11 +94,39 @@ class SalesEnablementOrchestrator:
             print("\nSTEP 2: RETRIEVING EVIDENCE...")
         evidence = Evidence()
 
-        # Catalog search
-        if router_output.retrieval_plan.use_catalog:
+        # Primary search: Use CSV if available, otherwise use catalog
+        search_query = router_output.retrieval_plan.catalog_query or question
+        top_k = router_output.retrieval_plan.top_k
+
+        # If we have a RealCSVProvider, use it for primary search
+        if isinstance(self.csv_provider, RealCSVProvider):
+            if self.settings.verbose:
+                print("  Using CSV-based search...")
+            csv_search_results = self.csv_provider.search_programs(search_query, top_k)
+
+            # Convert to CatalogResult format for compatibility
+            from schemas.evidence import CatalogResult
+            for result in csv_search_results:
+                prog = result.program_entity
+                catalog_result = CatalogResult(
+                    program_key=prog.program_key,
+                    program_title=prog.program_title,
+                    program_type=prog.program_type or "Course",
+                    summary=prog.program_summary or "",
+                    duration_hours=prog.program_duration_hours,
+                    difficulty_level=prog.difficulty_level,
+                    fit_score=result.relevance_score
+                )
+                evidence.catalog_results.append(catalog_result)
+
+            if self.settings.verbose:
+                print(f"  CSV Search: {len(evidence.catalog_results)} results")
+
+        # Fallback to catalog search if no CSV results or no CSV provider
+        elif router_output.retrieval_plan.use_catalog:
             catalog_output = self.catalog_search.search(
-                query=router_output.retrieval_plan.catalog_query or question,
-                top_k=router_output.retrieval_plan.top_k
+                query=search_query,
+                top_k=top_k
             )
             evidence.catalog_results = catalog_output.results
 
