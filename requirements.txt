@@ -5,6 +5,7 @@ pytest>=7.4.0
 pyyaml>=6.0.0
 rapidfuzz>=3.0.0
 requests>=2.31.0
+streamlit>=1.28.0
 
 # Optional: For embedding-based semantic matching (Phase 3)
 # sentence-transformers>=2.2.0
