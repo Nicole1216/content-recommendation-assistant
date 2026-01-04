@@ -305,7 +305,25 @@ class RealCSVProvider:
             List of program search results
         """
         query_lower = query.lower()
-        query_terms = query_lower.split()
+        # Remove punctuation and split into terms
+        import re
+        query_terms = re.findall(r'\b[a-z]+\b', query_lower)
+
+        # Filter out common stop words that cause false matches
+        stop_words = {
+            'i', 'we', 'you', 'they', 'he', 'she', 'it', 'the', 'a', 'an',
+            'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+            'do', 'does', 'did', 'will', 'would', 'could', 'should', 'can', 'may', 'might',
+            'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into',
+            'and', 'or', 'but', 'if', 'then', 'so', 'than', 'that', 'this', 'these', 'those',
+            'what', 'which', 'who', 'whom', 'when', 'where', 'why', 'how',
+            'all', 'each', 'every', 'both', 'few', 'more', 'most', 'some', 'any', 'no',
+            'my', 'your', 'our', 'their', 'its', 'his', 'her',
+            'want', 'need', 'know', 'already', 'about', 'get', 'make', 'take',
+            'just', 'only', 'also', 'very', 'really', 'well', 'much', 'many',
+            'program', 'programs', 'course', 'courses', 'training', 'learn', 'learning',
+        }
+        query_terms = [t for t in query_terms if t not in stop_words and len(t) > 1]
 
         # Phase 3: Semantic resolution
         semantic_result = None
@@ -333,13 +351,16 @@ class RealCSVProvider:
             matched_subjects = []
             matched_courses = []
             source_columns = []
+            matched_terms = set()  # Track which query terms matched
 
             # TIER 1: Exact/partial skill matches (PRIMARY EVIDENCE)
             for term in query_terms:
-                # Check course skills array
+                # Check course skills array - use word boundary matching
+                term_pattern = re.compile(r'\b' + re.escape(term) + r'\b', re.IGNORECASE)
                 for skill in prog_entity.skills_union:
-                    if term in skill.lower():
+                    if term_pattern.search(skill):
                         score += 10.0  # Highest weight
+                        matched_terms.add(term)
                         if skill not in matched_skills:
                             matched_skills.append(skill)
                         if 'Course Skills Array' not in source_columns:
@@ -348,7 +369,7 @@ class RealCSVProvider:
             # Find which courses matched
             for course_key, course_skills in prog_entity.skills_by_course.items():
                 for skill in course_skills:
-                    if any(term in skill.lower() for term in query_terms):
+                    if any(re.search(r'\b' + re.escape(term) + r'\b', skill, re.IGNORECASE) for term in query_terms):
                         entity_key = f"{prog_key}:{course_key}"
                         if entity_key in self.courses:
                             course_entity = self.courses[entity_key]
@@ -364,18 +385,20 @@ class RealCSVProvider:
                 entity_key = f"{prog_key}:{course_key}"
                 if entity_key in self.courses:
                     course_entity = self.courses[entity_key]
-                    searchable = f"{course_entity.course_title} {course_entity.course_summary or ''}".lower()
+                    searchable = f"{course_entity.course_title} {course_entity.course_summary or ''}"
                     for term in query_terms:
-                        if term in searchable:
+                        if re.search(r'\b' + re.escape(term) + r'\b', searchable, re.IGNORECASE):
                             score += 3.0  # Medium weight
+                            matched_terms.add(term)
                             if 'Course Title' not in source_columns:
                                 source_columns.append('Course Title')
 
             # Program title/summary
-            searchable_prog = f"{prog_entity.program_title} {prog_entity.program_summary or ''}".lower()
+            searchable_prog = f"{prog_entity.program_title} {prog_entity.program_summary or ''}"
             for term in query_terms:
-                if term in searchable_prog:
+                if re.search(r'\b' + re.escape(term) + r'\b', searchable_prog, re.IGNORECASE):
                     score += 2.0  # Medium weight
+                    matched_terms.add(term)
                     if 'Program Title' not in source_columns:
                         source_columns.append('Program Title')
 
@@ -385,15 +408,20 @@ class RealCSVProvider:
                 if entity_key in self.courses:
                     course_entity = self.courses[entity_key]
                     for lesson in course_entity.lesson_outline:
-                        if any(term in lesson.lower() for term in query_terms):
+                        if any(re.search(r'\b' + re.escape(term) + r'\b', lesson, re.IGNORECASE) for term in query_terms):
                             score += 0.5
                     for project in course_entity.project_titles:
-                        if any(term in project.lower() for term in query_terms):
+                        if any(re.search(r'\b' + re.escape(term) + r'\b', project, re.IGNORECASE) for term in query_terms):
                             score += 0.5
 
             if score > 0:
-                # Normalize score
-                relevance = min(score / (len(query_terms) * 10.0), 1.0)
+                # Calculate relevance based on:
+                # 1. Percentage of query terms matched (primary factor)
+                # 2. Raw score (secondary factor for tie-breaking)
+                term_coverage = len(matched_terms) / len(query_terms) if query_terms else 0
+                # Combine: 70% term coverage + 30% normalized score
+                normalized_score = min(score / (len(query_terms) * 10.0), 1.0)
+                relevance = (0.7 * term_coverage) + (0.3 * normalized_score)
 
                 results.append(ProgramSearchResult(
                     program_entity=prog_entity,
