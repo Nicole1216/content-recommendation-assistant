@@ -1,6 +1,5 @@
-"""Retrieval layer for catalog and CSV data."""
+"""Retrieval layer for CSV data."""
 
-from .catalog_provider import CatalogProvider
-from .csv_index import CSVIndex
+from .real_csv_provider import RealCSVProvider
 
-__all__ = ["CatalogProvider", "CSVIndex"]
+__all__ = ["RealCSVProvider"]

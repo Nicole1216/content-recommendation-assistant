@@ -1,21 +1,20 @@
 """CSV Details Specialist Agent."""
 
-from retrieval.csv_index import CSVIndex
+from retrieval.real_csv_provider import RealCSVProvider
 from schemas.responses import SpecialistOutput
-from schemas.evidence import CSVDetail
 
 
 class CSVDetailsAgent:
     """Specialist for CSV detail retrieval."""
 
-    def __init__(self, csv_index: CSVIndex):
+    def __init__(self, csv_provider: RealCSVProvider):
         """
-        Initialize with CSV index.
+        Initialize with CSV provider.
 
         Args:
-            csv_index: CSV index instance
+            csv_provider: RealCSVProvider instance
         """
-        self.csv_index = csv_index
+        self.csv_provider = csv_provider
 
     def get_details(self, program_keys: list[str]) -> SpecialistOutput:
         """
@@ -27,7 +26,7 @@ class CSVDetailsAgent:
         Returns:
             SpecialistOutput with CSV details
         """
-        details = self.csv_index.get_details(program_keys)
+        details = self.csv_provider.get_details(program_keys)
 
         return SpecialistOutput(
             specialist_name="CSVDetails",
@@ -35,28 +34,5 @@ class CSVDetailsAgent:
             metadata={
                 "program_keys": program_keys,
                 "num_results": len(details),
-            }
-        )
-
-    def search_by_skill(self, skill: str, top_k: int = 5) -> SpecialistOutput:
-        """
-        Search by skill.
-
-        Args:
-            skill: Skill to search for
-            top_k: Number of results
-
-        Returns:
-            SpecialistOutput with matching programs
-        """
-        results = self.csv_index.search_by_skill(skill, top_k=top_k)
-
-        return SpecialistOutput(
-            specialist_name="CSVDetails",
-            results=results,
-            metadata={
-                "skill": skill,
-                "top_k": top_k,
-                "num_results": len(results),
             }
         )

@@ -1,7 +1,6 @@
 """Sales Enablement Assistant - Streamlit App."""
 
 import streamlit as st
-import os
 from config.settings import Settings
 from schemas.context import AudiencePersona
 from orchestrator import SalesEnablementOrchestrator
@@ -32,16 +31,10 @@ top_k = st.sidebar.slider(
     value=5
 )
 
-catalog_api_url = st.sidebar.text_input(
-    "Catalog API URL (optional)",
-    value=os.environ.get("CATALOG_API_URL", ""),
-    help="Leave empty to use mock data"
-)
-
 csv_path = st.sidebar.text_input(
-    "CSV Path",
+    "CSV Data Path",
     value="data/NLC_Skill_Data.csv",
-    help="Path to CSV file for data source"
+    help="Path to CSV file containing program data"
 )
 
 # Map persona string to enum
@@ -68,8 +61,7 @@ if st.button("Get Answer", type="primary"):
         with st.spinner("Processing your question..."):
             try:
                 settings = Settings(
-                    catalog_api_url=catalog_api_url if catalog_api_url else None,
-                    csv_path=csv_path if csv_path else None,
+                    csv_path=csv_path,
                     top_k=top_k,
                     verbose=False,
                 )
@@ -79,16 +71,13 @@ if st.button("Get Answer", type="primary"):
 
                 # Debug: Show provider info
                 if show_debug:
-                    from retrieval.real_csv_provider import RealCSVProvider
                     st.info(f"CSV Path: {csv_path}")
-                    st.info(f"CSV Provider Type: {type(orchestrator.csv_provider).__name__}")
-                    if isinstance(orchestrator.csv_provider, RealCSVProvider):
-                        st.info(f"Programs loaded: {len(orchestrator.csv_provider.programs)}")
-                        # Test search directly
-                        test_results = orchestrator.csv_provider.search_programs(question, 5)
-                        st.info(f"Direct CSV search results:")
-                        for r in test_results:
-                            st.write(f"- {r.program_entity.program_key}: {r.program_entity.program_title} (score: {r.relevance_score:.2f})")
+                    st.info(f"Programs loaded: {len(orchestrator.csv_provider.programs)}")
+                    # Test search directly
+                    test_results = orchestrator.csv_provider.search_programs(question, 5)
+                    st.info("Direct CSV search results:")
+                    for r in test_results:
+                        st.write(f"- {r.program_entity.program_key}: {r.program_entity.program_title} (score: {r.relevance_score:.2f})")
 
                 response = orchestrator.process_question(question, persona)
 
