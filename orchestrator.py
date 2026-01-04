@@ -226,3 +226,5 @@ class SalesEnablementOrchestrator:
                 parts.append(f"- {item}")
 
         return "\n".join(parts)
+
+Orchestrator = SalesEnablementOrchestrator
