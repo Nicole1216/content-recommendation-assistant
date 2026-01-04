@@ -39,8 +39,8 @@ catalog_api_url = st.sidebar.text_input(
 )
 
 csv_path = st.sidebar.text_input(
-    "CSV Path (optional)",
-    value="",
+    "CSV Path",
+    value="data/NLC_Skill_Data.csv",
     help="Path to CSV file for data source"
 )
 
