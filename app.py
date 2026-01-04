@@ -24,10 +24,11 @@ run = st.button("🔍 Find Recommendations")
 
 if run and question:
     with st.spinner("Searching catalog and validating with CSV..."):
+     
+        base_url = st.secrets["CATALOG_API_URL"]
+
         orchestrator = Orchestrator(
-            catalog_provider=CatalogAPIProvider(
-                base_url=os.environ["CATALOG_API_URL"]
-            ),
+            catalog_provider=CatalogAPIProvider(base_url=base_url),  
             csv_provider=RealCSVProvider("data/NLC_Skill_Data.csv")
         )
 
