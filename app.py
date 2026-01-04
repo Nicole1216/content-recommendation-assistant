@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 from retrieval.real_csv_provider import RealCSVProvider
 from retrieval.catalog_api_provider import CatalogAPIProvider
@@ -24,7 +25,9 @@ run = st.button("🔍 Find Recommendations")
 if run and question:
     with st.spinner("Searching catalog and validating with CSV..."):
         orchestrator = Orchestrator(
-            catalog_provider=CatalogAPIProvider(),
+            catalog_provider=CatalogAPIProvider(
+                base_url=os.environ["CATALOG_API_URL"]
+            ),
             csv_provider=RealCSVProvider("data/NLC_Skill_Data.csv")
         )
 
