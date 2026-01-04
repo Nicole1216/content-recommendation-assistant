@@ -58,6 +58,9 @@ question = st.text_area(
     height=100
 )
 
+# Debug info checkbox
+show_debug = st.sidebar.checkbox("Show debug info", value=False)
+
 if st.button("Get Answer", type="primary"):
     if not question.strip():
         st.warning("Please enter a question.")
@@ -74,6 +77,19 @@ if st.button("Get Answer", type="primary"):
                 orchestrator = SalesEnablementOrchestrator(settings=settings)
                 persona = persona_map[persona_option]
 
+                # Debug: Show provider info
+                if show_debug:
+                    from retrieval.real_csv_provider import RealCSVProvider
+                    st.info(f"CSV Path: {csv_path}")
+                    st.info(f"CSV Provider Type: {type(orchestrator.csv_provider).__name__}")
+                    if isinstance(orchestrator.csv_provider, RealCSVProvider):
+                        st.info(f"Programs loaded: {len(orchestrator.csv_provider.programs)}")
+                        # Test search directly
+                        test_results = orchestrator.csv_provider.search_programs(question, 5)
+                        st.info(f"Direct CSV search results:")
+                        for r in test_results:
+                            st.write(f"- {r.program_entity.program_key}: {r.program_entity.program_title} (score: {r.relevance_score:.2f})")
+
                 response = orchestrator.process_question(question, persona)
 
                 st.success("Response generated!")
@@ -83,6 +99,8 @@ if st.button("Get Answer", type="primary"):
 
             except Exception as e:
                 st.error(f"Error processing question: {e}")
+                import traceback
+                st.code(traceback.format_exc())
 
 # Footer
 st.sidebar.markdown("---")
