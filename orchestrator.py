@@ -95,11 +95,13 @@ class SalesEnablementOrchestrator:
         evidence = Evidence()
 
         # Primary search: Use CSV if available, otherwise use catalog
-        search_query = router_output.retrieval_plan.catalog_query or question
+        # Always use original question for CSV search (it handles natural language well)
+        # Only use catalog_query for mock catalog which needs keyword extraction
         top_k = router_output.retrieval_plan.top_k
 
-        # If we have a RealCSVProvider, use it for primary search
+        # If we have a RealCSVProvider, use it for primary search with original question
         if isinstance(self.csv_provider, RealCSVProvider):
+            search_query = question  # Use original question, not the extracted keywords
             if self.settings.verbose:
                 print("  Using CSV-based search...")
             csv_search_results = self.csv_provider.search_programs(search_query, top_k)
@@ -124,6 +126,7 @@ class SalesEnablementOrchestrator:
 
         # Fallback to catalog search if no CSV results or no CSV provider
         elif router_output.retrieval_plan.use_catalog:
+            search_query = router_output.retrieval_plan.catalog_query or question
             catalog_output = self.catalog_search.search(
                 query=search_query,
                 top_k=top_k
