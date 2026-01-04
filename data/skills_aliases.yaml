@@ -1,0 +1,157 @@
+# Skill Alias Mapping
+# Maps common synonyms and variations to canonical skill names
+
+# Generative AI / LLM
+generative_ai:
+  - GenAI
+  - Generative AI
+  - Gen AI
+  - LLM
+  - Large Language Model
+  - Large Language Models
+  - GPT
+  - ChatGPT
+  - AI Literacy
+  - Prompt Engineering
+  - Prompting
+  - Prompt Design
+
+# Python variants
+python:
+  - Python
+  - Python Programming
+  - Python 3
+  - Py
+
+python_analytics:
+  - Python for Data Analysis
+  - Python Data Analysis
+  - Pandas
+  - NumPy
+  - Jupyter
+  - Python Analytics
+
+python_ml:
+  - Python for Machine Learning
+  - Python ML
+  - Scikit-learn
+  - sklearn
+  - TensorFlow
+  - PyTorch
+  - Keras
+
+# SQL variants
+sql:
+  - SQL
+  - Structured Query Language
+  - Database Queries
+
+sql_basics:
+  - SQL Fundamentals
+  - Basic SQL
+  - SQL Basics
+  - Database Basics
+  - SELECT queries
+
+sql_advanced:
+  - Advanced SQL
+  - SQL Optimization
+  - Window Functions
+  - CTEs
+  - Common Table Expressions
+  - Query Optimization
+  - Execution Plans
+  - SQL Performance
+  - Database Indexing
+
+# Data Analysis
+data_analysis:
+  - Data Analysis
+  - Data Analytics
+  - Analytics
+  - Business Analytics
+  - Quantitative Analysis
+
+# Machine Learning
+machine_learning:
+  - Machine Learning
+  - ML
+  - Predictive Modeling
+  - Model Training
+
+# Cloud / AWS
+aws:
+  - AWS
+  - Amazon Web Services
+  - Amazon Cloud
+
+cloud_computing:
+  - Cloud Computing
+  - Cloud
+  - Cloud Infrastructure
+
+# Data Science
+data_science:
+  - Data Science
+  - DS
+  - Data Scientist skills
+
+# Visualization
+data_visualization:
+  - Data Visualization
+  - Data Viz
+  - Tableau
+  - Visualization
+  - Charts
+  - Dashboards
+
+# AI / ML Operations
+mlops:
+  - MLOps
+  - ML Operations
+  - Model Deployment
+  - ML Engineering
+  - Production ML
+
+# Statistics
+statistics:
+  - Statistics
+  - Stats
+  - Statistical Analysis
+  - Probability
+
+# Big Data
+big_data:
+  - Big Data
+  - Hadoop
+  - Spark
+  - Distributed Computing
+
+# APIs
+api:
+  - API
+  - APIs
+  - REST API
+  - RESTful API
+  - Web Services
+
+# Version Control
+git:
+  - Git
+  - GitHub
+  - Version Control
+  - Source Control
+
+# General Programming
+programming:
+  - Programming
+  - Coding
+  - Software Development
+  - Development
+
+# Excel / Spreadsheets
+excel:
+  - Excel
+  - Microsoft Excel
+  - Spreadsheets
+  - Spreadsheet Analysis

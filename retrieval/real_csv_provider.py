@@ -4,12 +4,13 @@ import pandas as pd
 from typing import Optional
 from collections import defaultdict
 from retrieval.csv_loader import CSVLoader
+from retrieval.skill_semantics import SkillSemanticResolver
 from schemas.aggregated import ProgramEntity, CourseEntity, ProgramSearchResult
 from schemas.evidence import CSVDetail
 
 
 class RealCSVProvider:
-    """Real CSV provider for Phase 2."""
+    """Real CSV provider for Phase 2 & 3."""
 
     def __init__(self, csv_path: str):
         """
@@ -23,6 +24,8 @@ class RealCSVProvider:
         self.df: Optional[pd.DataFrame] = None
         self.programs: dict[str, ProgramEntity] = {}
         self.courses: dict[str, CourseEntity] = {}
+        self.skill_vocabulary: list[str] = []
+        self.semantic_resolver: Optional[SkillSemanticResolver] = None
 
         # Load and aggregate
         self._load()
@@ -37,6 +40,14 @@ class RealCSVProvider:
 
         # Aggregate programs
         self._aggregate_programs()
+
+        # Build skill vocabulary (Phase 3)
+        self._build_skill_vocabulary()
+
+        # Initialize semantic resolver (Phase 3)
+        self.semantic_resolver = SkillSemanticResolver(
+            skill_vocabulary=self.skill_vocabulary
+        )
 
     def _get_col(self, category: str, field: str) -> Optional[str]:
         """Get column name helper."""
@@ -246,17 +257,45 @@ class RealCSVProvider:
                 seen.add(item)
         return result
 
+    def _build_skill_vocabulary(self):
+        """
+        Build skill vocabulary from CSV for fuzzy/embedding matching (Phase 3).
+
+        Extracts all unique skills from:
+        - Course Skills Array
+        - Course Skills Subject Array
+        """
+        all_skills = set()
+
+        for course_entity in self.courses.values():
+            # Add from Course Skills Array
+            for skill in course_entity.course_skills_array:
+                if skill:
+                    all_skills.add(skill)
+
+            # Add from Course Skills Subject Array
+            for skill in course_entity.course_skills_subject_array:
+                if skill:
+                    all_skills.add(skill)
+
+        self.skill_vocabulary = sorted(list(all_skills))
+
     def search_programs(
         self,
         query: str,
         top_k: int = 5
     ) -> list[ProgramSearchResult]:
         """
-        Search programs with skill-aware ranking.
+        Search programs with skill-aware ranking + semantic resolution (Phase 3).
 
         Two-tier evidence strategy:
         1) Coverage: Course Skills Array + Course Skills Subject Array (primary)
         2) Fit: Title/summary fields (secondary)
+
+        Phase 3 enhancement: Uses SkillSemanticResolver to:
+        - Map aliases to canonical skills
+        - Detect skill intents via taxonomy
+        - Add fuzzy/embedding fallback
 
         Args:
             query: Search query
@@ -267,6 +306,24 @@ class RealCSVProvider:
         """
         query_lower = query.lower()
         query_terms = query_lower.split()
+
+        # Phase 3: Semantic resolution
+        semantic_result = None
+        if self.semantic_resolver:
+            semantic_result = self.semantic_resolver.resolve(query)
+            # Add normalized skills and expansions to search terms
+            if semantic_result.normalized_skills:
+                query_terms.extend([s.lower() for s in semantic_result.normalized_skills])
+            if semantic_result.query_expansions:
+                query_terms.extend([s.lower() for s in semantic_result.query_expansions])
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_terms = []
+            for term in query_terms:
+                if term not in seen:
+                    unique_terms.append(term)
+                    seen.add(term)
+            query_terms = unique_terms
 
         results = []
 

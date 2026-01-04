@@ -1,11 +1,13 @@
 """Main orchestrator for the Sales Enablement Assistant."""
 
+import logging
 from typing import Optional
 from config.settings import Settings
 from schemas.context import MergedContext, AudiencePersona
 from schemas.responses import CriticDecision
 from schemas.evidence import Evidence
 from retrieval.catalog_provider import CatalogProvider
+from retrieval.catalog_api_provider import CatalogAPIProvider
 from retrieval.csv_index import CSVIndex
 from retrieval.real_csv_provider import RealCSVProvider
 from agents.router import RouterAgent
@@ -14,6 +16,8 @@ from agents.csv_details import CSVDetailsAgent
 from agents.comparator import ComparatorAgent
 from agents.composer import ComposerAgent
 from agents.critic import CriticAgent
+
+logger = logging.getLogger(__name__)
 
 
 class SalesEnablementOrchestrator:
@@ -28,13 +32,22 @@ class SalesEnablementOrchestrator:
         """
         self.settings = settings or Settings()
 
-        # Initialize retrieval layer
-        self.catalog_provider = CatalogProvider()
+        # Initialize catalog provider (Phase 3.5: use real API if URL provided)
+        if self.settings.catalog_api_url:
+            logger.info(f"Using Catalog API: {self.settings.catalog_api_url}")
+            self.catalog_provider = CatalogAPIProvider(
+                base_url=self.settings.catalog_api_url
+            )
+        else:
+            logger.info("Using mock catalog provider")
+            self.catalog_provider = CatalogProvider()
 
         # Use RealCSVProvider if csv_path is provided, otherwise use mock
         if self.settings.csv_path:
+            logger.info(f"Using real CSV provider: {self.settings.csv_path}")
             self.csv_provider = RealCSVProvider(csv_path=self.settings.csv_path)
         else:
+            logger.info("Using mock CSV provider")
             self.csv_provider = CSVIndex(csv_path=None)
             self.csv_provider.load()
 
@@ -88,6 +101,16 @@ class SalesEnablementOrchestrator:
                 top_k=router_output.retrieval_plan.top_k
             )
             evidence.catalog_results = catalog_output.results
+
+            # Check if using API provider and it's unavailable
+            if isinstance(self.catalog_provider, CatalogAPIProvider):
+                if not self.catalog_provider.is_available():
+                    warning_msg = f"⚠️  Catalog API is unavailable: {self.catalog_provider.get_last_error()}"
+                    logger.warning(warning_msg)
+                    if self.settings.verbose:
+                        print(f"\n{warning_msg}")
+                        print("  Continuing with CSV-only search...\n")
+
             if self.settings.verbose:
                 print(f"  Catalog: {len(evidence.catalog_results)} results")
 

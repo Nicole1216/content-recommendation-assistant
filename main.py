@@ -2,6 +2,7 @@
 """Sales Enablement Assistant CLI."""
 
 import argparse
+import os
 import sys
 from config.settings import Settings
 from schemas.context import AudiencePersona
@@ -27,6 +28,11 @@ def main():
         choices=["CTO", "HR", "L&D"],
         default="CTO",
         help="Target audience persona (default: CTO)"
+    )
+    parser.add_argument(
+        "--catalog-api-url",
+        type=str,
+        help="Catalog API base URL (Phase 3.5: uses real API if provided, can also use CATALOG_API_URL env var)"
     )
     parser.add_argument(
         "--csv-path",
@@ -56,8 +62,12 @@ def main():
     }
     persona = persona_map[args.persona]
 
+    # Get catalog API URL from CLI arg or environment variable
+    catalog_api_url = args.catalog_api_url or os.environ.get("CATALOG_API_URL")
+
     # Create settings
     settings = Settings(
+        catalog_api_url=catalog_api_url,
         csv_path=args.csv_path,
         top_k=args.top_k,
         verbose=args.verbose,

@@ -1,0 +1,207 @@
+# Skill Taxonomy for Intent Disambiguation
+# Defines skill intents with context signals and required/preferred skills
+
+# Python intents
+python_analytics:
+  canonical_skill: "Python"
+  intent_label: "Python for Data Analytics"
+  context_signals:
+    - analyst
+    - analytics
+    - data analysis
+    - pandas
+    - numpy
+    - jupyter
+    - visualization
+    - exploratory
+    - cleaning
+    - wrangling
+  required_skills:
+    - Python
+  preferred_skills:
+    - Pandas
+    - NumPy
+    - Data Analysis
+  avoid_signals:
+    - machine learning
+    - deep learning
+    - model training
+    - deployment
+
+python_ml:
+  canonical_skill: "Python"
+  intent_label: "Python for Machine Learning"
+  context_signals:
+    - machine learning
+    - ML engineer
+    - model
+    - training
+    - scikit-learn
+    - sklearn
+    - tensorflow
+    - pytorch
+    - neural network
+    - deep learning
+    - prediction
+  required_skills:
+    - Python
+    - Machine Learning
+  preferred_skills:
+    - Scikit-learn
+    - Model Training
+    - Neural Networks
+  avoid_signals:
+    - just analytics
+    - only visualization
+
+python_general:
+  canonical_skill: "Python"
+  intent_label: "General Python Programming"
+  context_signals:
+    - beginner
+    - basics
+    - fundamentals
+    - introduction
+    - programming
+    - developer
+  required_skills:
+    - Python
+  preferred_skills:
+    - Programming Basics
+    - Data Structures
+
+# SQL intents
+sql_basics:
+  canonical_skill: "SQL"
+  intent_label: "SQL Fundamentals"
+  context_signals:
+    - beginner
+    - basics
+    - fundamentals
+    - introduction
+    - SELECT
+    - WHERE
+    - JOIN
+    - basic queries
+  required_skills:
+    - SQL
+  preferred_skills:
+    - Database Design
+    - Query Optimization
+  avoid_signals:
+    - optimization
+    - window functions
+    - CTE
+    - execution plan
+    - advanced
+    - performance tuning
+
+sql_advanced:
+  canonical_skill: "SQL"
+  intent_label: "Advanced SQL & Optimization"
+  context_signals:
+    - advanced
+    - optimization
+    - window functions
+    - CTE
+    - common table expressions
+    - execution plan
+    - performance
+    - tuning
+    - indexing
+    - query optimization
+  required_skills:
+    - SQL
+    - Query Optimization
+  preferred_skills:
+    - Window Functions
+    - Performance Tuning
+  avoid_signals:
+    - beginner
+    - basics
+
+# GenAI intents
+genai_business:
+  canonical_skill: "generative_ai"  # Lowercase to match alias output
+  intent_label: "GenAI for Business Leaders"
+  context_signals:
+    - business
+    - executive
+    - strategy
+    - ROI
+    - use cases
+    - non-technical
+    - leader
+    - manager
+  required_skills:
+    - GenAI Strategy
+    - AI Use Cases
+  preferred_skills:
+    - ROI Analysis
+  avoid_signals:
+    - coding
+    - programming
+    - technical implementation
+
+genai_technical:
+  canonical_skill: "generative_ai"  # Lowercase to match alias output
+  intent_label: "GenAI Technical Implementation"
+  context_signals:
+    - prompt engineering
+    - implementation
+    - API
+    - technical
+    - developer
+    - engineer
+    - coding
+    - integration
+    - LangChain
+    - fine-tuning
+  required_skills:
+    - Prompt Engineering
+  preferred_skills:
+    - API Integration
+    - LLM APIs
+  avoid_signals:
+    - non-technical
+    - business only
+
+# Data Analysis intents
+data_analysis_basic:
+  canonical_skill: "Data Analysis"
+  intent_label: "Basic Data Analysis"
+  context_signals:
+    - beginner
+    - introduction
+    - fundamentals
+    - excel
+    - spreadsheet
+    - descriptive statistics
+  required_skills:
+    - Data Analysis
+  preferred_skills:
+    - Excel
+    - Statistics
+  avoid_signals:
+    - advanced modeling
+    - machine learning
+
+data_analysis_advanced:
+  canonical_skill: "Data Analysis"
+  intent_label: "Advanced Analytics & Statistics"
+  context_signals:
+    - advanced
+    - statistical modeling
+    - hypothesis testing
+    - A/B testing
+    - experimentation
+    - inferential statistics
+  required_skills:
+    - Data Analysis
+    - Statistics
+  preferred_skills:
+    - Statistical Modeling
+    - Hypothesis Testing
+  avoid_signals:
+    - beginner
+    - basic only
