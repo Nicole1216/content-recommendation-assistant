@@ -8,3 +8,4 @@ requests>=2.31.0
 
 # Optional: For embedding-based semantic matching (Phase 3)
 # sentence-transformers>=2.2.0
+streamlit>=1.31.0
