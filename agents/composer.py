@@ -49,6 +49,7 @@ class ComposerAgent:
     def _compose_discovery(self, context: MergedContext) -> ComposerOutput:
         """Compose discovery response."""
         catalog_results = context.retrieved_evidence.get("catalog_results", [])
+        csv_details = context.retrieved_evidence.get("csv_details", [])
 
         response_parts = []
         citations = []
@@ -69,12 +70,54 @@ class ComposerAgent:
             response_parts.append(f"Found {len(catalog_results)} relevant programs:\n")
 
             for i, result in enumerate(catalog_results, 1):
+                # Find CSV details for this program
+                detail = None
+                for d in csv_details:
+                    if d.program_key == result.program_key:
+                        detail = d
+                        break
+
                 response_parts.append(f"\n### {i}. {result.program_title}")
+                response_parts.append(f"- **Program Key**: `{result.program_key}`")
                 response_parts.append(f"- **Type**: {result.program_type}")
-                response_parts.append(f"- **Duration**: {result.duration_hours} hours")
-                response_parts.append(f"- **Level**: {result.difficulty_level}")
-                response_parts.append(f"- **Summary**: {result.summary}")
-                response_parts.append(f"- **Relevance**: {result.fit_score:.0%}\n")
+                response_parts.append(f"- **Duration**: {result.duration_hours or 'N/A'} hours")
+                response_parts.append(f"- **Level**: {result.difficulty_level or 'N/A'}")
+                response_parts.append(f"- **Match Score**: {result.fit_score:.0%}")
+
+                # Recommendation reason
+                score_pct = result.fit_score * 100
+                if score_pct >= 90:
+                    match_text = "Excellent match - strongly aligns with your query"
+                elif score_pct >= 70:
+                    match_text = "Good match - covers most of your requirements"
+                elif score_pct >= 50:
+                    match_text = "Moderate match - partially covers your needs"
+                else:
+                    match_text = "Partial match - has some relevant content"
+                response_parts.append(f"- **Why Recommended**: {match_text}")
+
+                # Summary
+                if result.summary:
+                    response_parts.append(f"- **Summary**: {result.summary}")
+
+                # Core skills from CSV
+                if detail and detail.course_skills:
+                    skills_preview = detail.course_skills[:5]
+                    skills_text = ", ".join(skills_preview)
+                    if len(detail.course_skills) > 5:
+                        skills_text += f" (+{len(detail.course_skills) - 5} more)"
+                    response_parts.append(f"- **Core Skills**: {skills_text}")
+
+                # Time commitment
+                if result.duration_hours:
+                    weeks_standard = result.duration_hours / 10
+                    if weeks_standard < 4:
+                        time_text = f"~{weeks_standard:.0f} weeks at 10 hrs/week"
+                    else:
+                        time_text = f"~{weeks_standard/4:.1f} months at 10 hrs/week"
+                    response_parts.append(f"- **Time to Complete**: {time_text}")
+
+                response_parts.append("")
 
                 citations.append(
                     f"[Catalog: {result.program_key}, {result.program_title}]"
@@ -117,9 +160,6 @@ class ComposerAgent:
                 eval_answered[q] = False
         else:
             top_program = catalog_results[0]
-            response_parts.append(f"**Program**: {top_program.program_title}\n")
-            response_parts.append(f"{top_program.summary}\n")
-            citations.append(f"[Catalog: {top_program.program_key}]")
 
             # Get CSV details for top program
             top_detail = None
@@ -127,6 +167,82 @@ class ComposerAgent:
                 if detail.program_key == top_program.program_key:
                     top_detail = detail
                     break
+
+            # Program header with key info
+            response_parts.append(f"**Program**: {top_program.program_title}")
+            response_parts.append(f"- **Program Key**: `{top_program.program_key}`")
+            response_parts.append(f"- **Duration**: {top_program.duration_hours or 'N/A'} hours")
+            response_parts.append(f"- **Level**: {top_program.difficulty_level or 'N/A'}")
+            response_parts.append(f"- **Match Score**: {top_program.fit_score:.0%}\n")
+            response_parts.append(f"{top_program.summary}\n")
+            citations.append(f"[Catalog: {top_program.program_key}]")
+
+            # NEW: Recommendation Reason
+            response_parts.append("## Why This Recommendation?\n")
+            score_pct = top_program.fit_score * 100
+            if score_pct >= 90:
+                match_quality = "excellent"
+                reason = "This program strongly aligns with your requirements"
+            elif score_pct >= 70:
+                match_quality = "good"
+                reason = "This program covers most of your requirements"
+            elif score_pct >= 50:
+                match_quality = "moderate"
+                reason = "This program partially matches your requirements"
+            else:
+                match_quality = "partial"
+                reason = "This program has some relevant content"
+
+            response_parts.append(f"**Match Quality**: {match_quality.title()} ({score_pct:.0f}%)\n")
+            response_parts.append(f"{reason}. The {score_pct:.0f}% score is based on:")
+            response_parts.append("- How many of your requested skills are covered in the curriculum")
+            response_parts.append("- Semantic similarity between your query and program content")
+            response_parts.append("- Keyword matches in course titles, skills, and descriptions\n")
+
+            # NEW: Core Skills Section
+            response_parts.append("## Core Skills You'll Gain\n")
+            if top_detail and top_detail.course_skills:
+                skills_list = top_detail.course_skills[:15]  # Top 15 skills
+                response_parts.append("Upon completing this program, learners will acquire:\n")
+                for skill in skills_list:
+                    response_parts.append(f"- {skill}")
+                if len(top_detail.course_skills) > 15:
+                    response_parts.append(f"- *...and {len(top_detail.course_skills) - 15} more skills*")
+                response_parts.append("")
+                citations.append(f"[CSV: {top_detail.program_key}, Course Skills]")
+            else:
+                response_parts.append("Skill details not available in curriculum data.\n")
+                assumptions.append("Detailed skill list not available from CSV")
+
+            # NEW: Time Commitment Section
+            response_parts.append("## Time Commitment & Duration\n")
+            if top_program.duration_hours:
+                hours = top_program.duration_hours
+                response_parts.append(f"**Total Duration**: {hours} hours\n")
+                response_parts.append("**Estimated completion timeline**:")
+
+                # Different scenarios
+                scenarios = [
+                    (5, "Part-time (5 hrs/week)"),
+                    (10, "Standard (10 hrs/week)"),
+                    (20, "Intensive (20 hrs/week)"),
+                ]
+                for hrs_per_week, label in scenarios:
+                    weeks = hours / hrs_per_week
+                    months = weeks / 4
+                    if weeks < 4:
+                        time_str = f"{weeks:.0f} weeks"
+                    else:
+                        time_str = f"{months:.1f} months"
+                    response_parts.append(f"- **{label}**: ~{time_str}")
+
+                response_parts.append("")
+                response_parts.append("*Duration includes video content, readings, quizzes, and hands-on projects. ")
+                response_parts.append("Actual time may vary based on learner's background and pace.*\n")
+                citations.append(f"[Catalog: {top_program.program_key}, Duration]")
+            else:
+                response_parts.append("Duration information not available.\n")
+                assumptions.append("Program duration not specified")
 
             # Answer 6 evaluation questions
             response_parts.append("\n## Evaluation Against Your Requirements\n")

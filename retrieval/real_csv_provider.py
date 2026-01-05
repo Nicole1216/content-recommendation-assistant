@@ -1,23 +1,28 @@
 """Real CSV provider with skill-based search and aggregation."""
 
+import logging
 import pandas as pd
 from typing import Optional
 from collections import defaultdict
 from retrieval.csv_loader import CSVLoader
 from retrieval.skill_semantics import SkillSemanticResolver
+from retrieval.embeddings_manager import EmbeddingsManager
 from schemas.aggregated import ProgramEntity, CourseEntity, ProgramSearchResult
 from schemas.evidence import CSVDetail
+
+logger = logging.getLogger(__name__)
 
 
 class RealCSVProvider:
     """Real CSV provider for Phase 2 & 3."""
 
-    def __init__(self, csv_path: str):
+    def __init__(self, csv_path: str, openai_api_key: Optional[str] = None):
         """
         Initialize with real CSV file.
 
         Args:
             csv_path: Path to CSV file
+            openai_api_key: Optional OpenAI API key for embeddings
         """
         self.csv_path = csv_path
         self.loader = CSVLoader()
@@ -26,6 +31,8 @@ class RealCSVProvider:
         self.courses: dict[str, CourseEntity] = {}
         self.skill_vocabulary: list[str] = []
         self.semantic_resolver: Optional[SkillSemanticResolver] = None
+        self.embeddings_manager: Optional[EmbeddingsManager] = None
+        self._openai_api_key = openai_api_key
 
         # Load and aggregate
         self._load()
@@ -48,6 +55,9 @@ class RealCSVProvider:
         self.semantic_resolver = SkillSemanticResolver(
             skill_vocabulary=self.skill_vocabulary
         )
+
+        # Initialize embeddings manager for semantic search
+        self._initialize_embeddings()
 
     def _get_col(self, category: str, field: str) -> Optional[str]:
         """Get column name helper."""
@@ -280,6 +290,24 @@ class RealCSVProvider:
 
         self.skill_vocabulary = sorted(list(all_skills))
 
+    def _initialize_embeddings(self):
+        """Initialize embeddings manager for semantic search."""
+        self.embeddings_manager = EmbeddingsManager(
+            openai_api_key=self._openai_api_key
+        )
+
+        if self.embeddings_manager.client:
+            success = self.embeddings_manager.initialize(
+                csv_path=self.csv_path,
+                skills=self.skill_vocabulary
+            )
+            if success:
+                logger.info(f"Embeddings initialized with {len(self.skill_vocabulary)} skills")
+            else:
+                logger.warning("Failed to initialize embeddings - falling back to keyword search")
+        else:
+            logger.info("Embeddings disabled - using keyword search only")
+
     def _extract_intent(self, query: str) -> dict:
         """
         Extract intent from transition/upskilling queries.
@@ -464,6 +492,20 @@ class RealCSVProvider:
                     seen.add(term)
             query_terms = unique_terms
 
+        # Phase 4: Embedding-based semantic search
+        # Find semantically similar skills using embeddings
+        similar_skills = []
+        if self.embeddings_manager and self.embeddings_manager.is_available():
+            # Use the original query for semantic search
+            similar = self.embeddings_manager.find_similar_skills(
+                query=query,
+                top_k=15,
+                threshold=0.35
+            )
+            similar_skills = [skill for skill, score in similar]
+            if similar_skills:
+                logger.debug(f"Semantic search found {len(similar_skills)} similar skills")
+
         results = []
 
         for prog_key, prog_entity in self.programs.items():
@@ -473,6 +515,20 @@ class RealCSVProvider:
             matched_courses = []
             source_columns = []
             matched_terms = set()  # Track which query terms matched
+            semantic_matches = []  # Track semantically matched skills
+
+            # TIER 0: Semantic skill matches (EMBEDDING-BASED)
+            if similar_skills:
+                for similar_skill in similar_skills:
+                    similar_lower = similar_skill.lower()
+                    for prog_skill in prog_entity.skills_union:
+                        if similar_lower == prog_skill.lower():
+                            score += 15.0  # Strong boost for semantic matches
+                            if prog_skill not in semantic_matches:
+                                semantic_matches.append(prog_skill)
+                            if 'Semantic Match' not in source_columns:
+                                source_columns.append('Semantic Match')
+                            break
 
             # TIER 1: Exact/partial skill matches (PRIMARY EVIDENCE)
             for term in query_terms:
@@ -560,15 +616,20 @@ class RealCSVProvider:
                 # Calculate relevance based on:
                 # 1. Percentage of query terms matched (primary factor)
                 # 2. Raw score (secondary factor for tie-breaking)
+                # 3. Semantic matches bonus
                 term_coverage = len(matched_terms) / len(query_terms) if query_terms else 0
-                # Combine: 70% term coverage + 30% normalized score
-                normalized_score = min(score / (len(query_terms) * 10.0), 1.0)
-                relevance = (0.7 * term_coverage) + (0.3 * normalized_score)
+                semantic_bonus = min(len(semantic_matches) * 0.1, 0.3) if semantic_matches else 0
+                # Combine: 60% term coverage + 30% normalized score + 10% semantic
+                normalized_score = min(score / (len(query_terms) * 10.0 + len(semantic_matches) * 5.0), 1.0)
+                relevance = (0.6 * term_coverage) + (0.3 * normalized_score) + semantic_bonus
+
+                # Combine matched skills with semantic matches
+                all_matched_skills = matched_skills + [s for s in semantic_matches if s not in matched_skills]
 
                 results.append(ProgramSearchResult(
                     program_entity=prog_entity,
                     relevance_score=relevance,
-                    matched_course_skills=matched_skills,
+                    matched_course_skills=all_matched_skills,
                     matched_course_skill_subjects=matched_subjects,
                     matched_courses=matched_courses,
                     source_columns=source_columns,

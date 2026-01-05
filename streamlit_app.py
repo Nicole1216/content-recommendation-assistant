@@ -37,6 +37,15 @@ csv_path = st.sidebar.text_input(
     help="Path to CSV file containing program data"
 )
 
+# OpenAI API key for semantic search
+import os
+openai_api_key = st.sidebar.text_input(
+    "OpenAI API Key (optional)",
+    value=os.environ.get("OPENAI_API_KEY", ""),
+    type="password",
+    help="For semantic search. Leave empty to use keyword search only."
+)
+
 # Map persona string to enum
 persona_map = {
     "CTO": AudiencePersona.CTO,
@@ -62,6 +71,7 @@ if st.button("Get Answer", type="primary"):
             try:
                 settings = Settings(
                     csv_path=csv_path,
+                    openai_api_key=openai_api_key if openai_api_key else None,
                     top_k=top_k,
                     verbose=False,
                 )
@@ -73,6 +83,11 @@ if st.button("Get Answer", type="primary"):
                 if show_debug:
                     st.info(f"CSV Path: {csv_path}")
                     st.info(f"Programs loaded: {len(orchestrator.csv_provider.programs)}")
+                    embeddings_status = "Enabled" if (
+                        orchestrator.csv_provider.embeddings_manager and
+                        orchestrator.csv_provider.embeddings_manager.is_available()
+                    ) else "Disabled (keyword search only)"
+                    st.info(f"Semantic Search: {embeddings_status}")
                     # Test search directly
                     test_results = orchestrator.csv_provider.search_programs(question, 5)
                     st.info("Direct CSV search results:")

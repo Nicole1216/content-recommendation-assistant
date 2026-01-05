@@ -30,7 +30,10 @@ class SalesEnablementOrchestrator:
 
         # Initialize CSV provider as the single data source
         logger.info(f"Using CSV data source: {self.settings.csv_path}")
-        self.csv_provider = RealCSVProvider(csv_path=self.settings.csv_path)
+        self.csv_provider = RealCSVProvider(
+            csv_path=self.settings.csv_path,
+            openai_api_key=self.settings.openai_api_key
+        )
 
         # Initialize agents
         self.router = RouterAgent()
