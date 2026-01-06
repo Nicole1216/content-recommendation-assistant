@@ -14,6 +14,7 @@ class CourseEntity(BaseModel):
     # Critical skill arrays (FIRST-CLASS indices)
     course_skills_array: list[str] = Field(default_factory=list)
     course_skills_subject_array: list[str] = Field(default_factory=list)
+    skill_domains: list[str] = Field(default_factory=list)  # High-level skill categories
 
     # Other course metadata
     course_prereq_skills: list[str] = Field(default_factory=list)
@@ -63,6 +64,10 @@ class ProgramEntity(BaseModel):
     skills_union: list[str] = Field(
         default_factory=list,
         description="Union of all course_skills_array and course_skills_subject_array"
+    )
+    skill_domains: list[str] = Field(
+        default_factory=list,
+        description="High-level skill domains (e.g., AI, Data Science, Cloud)"
     )
     skills_by_course: dict[str, list[str]] = Field(
         default_factory=dict,

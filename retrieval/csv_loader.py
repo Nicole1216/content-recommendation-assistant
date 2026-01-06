@@ -94,6 +94,7 @@ class CSVLoader:
         array_fields = self._get_column_names([
             'course_skills_array',
             'course_skills_subject_array',
+            'skill_domains',
             'concept_titles',
             'prerequisite_skills',
             'course_prereq_skills',

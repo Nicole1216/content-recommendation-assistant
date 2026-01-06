@@ -16,6 +16,45 @@ logger = logging.getLogger(__name__)
 class RealCSVProvider:
     """Real CSV provider for Phase 2 & 3."""
 
+    # Role-to-skills mapping for career transition queries
+    ROLE_SKILLS_MAP = {
+        # Data roles
+        "data scientist": ["machine learning", "python", "statistics", "data analysis", "sql", "deep learning", "data visualization", "pandas", "numpy", "scikit-learn"],
+        "data analysts": ["sql", "data analysis", "excel", "data visualization", "python", "statistics", "tableau", "power bi"],
+        "data analyst": ["sql", "data analysis", "excel", "data visualization", "python", "statistics", "tableau", "power bi"],
+        "data engineer": ["sql", "python", "etl", "data pipelines", "spark", "airflow", "data warehousing", "cloud"],
+        "machine learning engineer": ["machine learning", "deep learning", "python", "tensorflow", "pytorch", "mlops", "model deployment"],
+        "ml engineer": ["machine learning", "deep learning", "python", "tensorflow", "pytorch", "mlops", "model deployment"],
+        "ai engineer": ["artificial intelligence", "machine learning", "deep learning", "nlp", "computer vision", "python", "generative ai"],
+
+        # Software engineering roles
+        "software engineer": ["python", "java", "javascript", "software development", "algorithms", "data structures", "git"],
+        "software developer": ["python", "java", "javascript", "software development", "algorithms", "data structures", "git"],
+        "frontend developer": ["javascript", "html", "css", "react", "web development", "typescript", "frontend"],
+        "front-end developer": ["javascript", "html", "css", "react", "web development", "typescript", "frontend"],
+        "backend developer": ["python", "java", "sql", "api", "backend", "databases", "node.js"],
+        "full stack developer": ["javascript", "python", "html", "css", "react", "sql", "web development", "api"],
+        "fullstack developer": ["javascript", "python", "html", "css", "react", "sql", "web development", "api"],
+
+        # Cloud & DevOps roles
+        "cloud engineer": ["aws", "azure", "cloud computing", "kubernetes", "docker", "infrastructure", "terraform"],
+        "devops engineer": ["ci/cd", "docker", "kubernetes", "aws", "linux", "automation", "infrastructure as code"],
+        "site reliability engineer": ["sre", "monitoring", "kubernetes", "linux", "automation", "incident management"],
+
+        # Security roles
+        "cybersecurity analyst": ["cybersecurity", "security", "network security", "threat detection", "incident response"],
+        "security engineer": ["cybersecurity", "security architecture", "penetration testing", "security"],
+
+        # Management roles
+        "product manager": ["product management", "agile", "user research", "roadmap", "stakeholder management"],
+        "project manager": ["project management", "agile", "scrum", "stakeholder management", "risk management"],
+        "engineering manager": ["leadership", "management", "agile", "team building", "technical leadership"],
+
+        # AI/GenAI roles
+        "prompt engineer": ["prompt engineering", "generative ai", "llm", "ai", "natural language processing"],
+        "ai architect": ["artificial intelligence", "machine learning", "system design", "architecture", "mlops"],
+    }
+
     def __init__(self, csv_path: str, openai_api_key: Optional[str] = None):
         """
         Initialize with real CSV file.
@@ -102,6 +141,15 @@ class RealCSVProvider:
                     if isinstance(val, list):
                         all_subjects.extend(val)
                 course_entity.course_skills_subject_array = self._dedupe_preserve_order(all_subjects)
+
+            # Parse skill domains
+            skill_domains_col = self._get_col('course', 'skill_domains')
+            if skill_domains_col:
+                all_domains = []
+                for val in group[skill_domains_col].dropna():
+                    if isinstance(val, list):
+                        all_domains.extend(val)
+                course_entity.skill_domains = self._dedupe_preserve_order(all_domains)
 
             # Aggregate other array fields
             course_entity.course_prereq_skills = self._merge_array_field(group, 'course', 'course_prereq_skills')
@@ -198,6 +246,7 @@ class RealCSVProvider:
 
             # Skills union from courses
             skills_union = set()
+            skill_domains_union = set()
             skills_by_course = {}
 
             for course_key in prog_entity.courses:
@@ -206,10 +255,12 @@ class RealCSVProvider:
                     course_entity = self.courses[entity_key]
                     course_skills = course_entity.course_skills_array + course_entity.course_skills_subject_array
                     skills_union.update(course_skills)
+                    skill_domains_union.update(course_entity.skill_domains)
                     if course_skills:
                         skills_by_course[course_key] = course_skills
 
             prog_entity.skills_union = list(skills_union)
+            prog_entity.skill_domains = list(skill_domains_union)
             prog_entity.skills_by_course = skills_by_course
 
             # Lesson and project counts
@@ -320,13 +371,42 @@ class RealCSVProvider:
         - "to be Y" / "to be a Y"
 
         Returns:
-            dict with 'target_terms' (boosted) and 'source_terms' (deprioritized)
+            dict with 'target_terms' (boosted), 'source_terms' (deprioritized),
+            'target_role' (detected job title), 'target_skills' (expanded skills)
         """
         import re
         query_lower = query.lower()
 
         target_terms = []
         source_terms = []
+        target_role = None
+        source_role = None
+
+        # First, try to detect job titles in the query
+        for role in self.ROLE_SKILLS_MAP.keys():
+            if role in query_lower:
+                # Check if it's in a target context
+                target_patterns = [
+                    rf'become\s+(?:a\s+)?{re.escape(role)}',
+                    rf'to\s+(?:be\s+)?(?:a\s+)?{re.escape(role)}',
+                    rf'into\s+(?:a\s+)?{re.escape(role)}',
+                    rf'as\s+(?:a\s+)?{re.escape(role)}',
+                ]
+                for pattern in target_patterns:
+                    if re.search(pattern, query_lower):
+                        target_role = role
+                        break
+
+                # Check if it's in a source context
+                source_patterns = [
+                    rf'from\s+(?:a\s+)?{re.escape(role)}',
+                    rf'upskill\s+(?:\d+\s+)?(?:of\s+)?(?:my\s+|our\s+)?{re.escape(role)}',
+                    rf'train\s+(?:\d+\s+)?(?:of\s+)?(?:my\s+|our\s+)?{re.escape(role)}',
+                ]
+                for pattern in source_patterns:
+                    if re.search(pattern, query_lower):
+                        source_role = role
+                        break
 
         # Pattern: "from X to/into Y" - X is source, Y is target
         from_to_match = re.search(
@@ -369,9 +449,9 @@ class RealCSVProvider:
         if upskill_match:
             target_terms.extend(re.findall(r'\b[a-z]+\b', upskill_match.group(1)))
 
-        # Pattern: "upskill/train X to be Y" - X is source (current role), Y is target
+        # Pattern: "upskill/train X to become/be Y" - X is source (current role), Y is target
         upskill_role_match = re.search(
-            r'(?:upskill|train|reskill)\s+(?:\d+\s+)?(?:of\s+)?(?:my\s+|our\s+)?(.+?)\s+to\s+(?:be\s+)?(?:a\s+)?(.+?)(?:\.|,|$|\s+(?:they|who|that|and|but))',
+            r'(?:upskill|train|reskill)\s+(?:\d+\s+)?(?:of\s+)?(?:my\s+|our\s+)?(.+?)\s+to\s+(?:become\s+)?(?:be\s+)?(?:a\s+)?(.+?)(?:\.|,|$|\s+(?:they|who|that|and|but|what))',
             query_lower
         )
         if upskill_role_match:
@@ -403,7 +483,7 @@ class RealCSVProvider:
             source_terms.extend(re.findall(r'\b[a-z]+\b', know_match.group(1)))
 
         # Filter out stop words from extracted terms
-        stop_words = {'a', 'an', 'the', 'be', 'is', 'are', 'as', 'to', 'for', 'and', 'or'}
+        stop_words = {'a', 'an', 'the', 'be', 'is', 'are', 'as', 'to', 'for', 'and', 'or', 'become', 'what', 'do', 'you', 'recommend'}
         target_terms = [t for t in target_terms if t not in stop_words and len(t) > 1]
         source_terms = [t for t in source_terms if t not in stop_words and len(t) > 1]
 
@@ -413,9 +493,24 @@ class RealCSVProvider:
         seen = set()
         source_terms = [t for t in source_terms if not (t in seen or seen.add(t))]
 
+        # Expand target role to skills
+        target_skills = []
+        if target_role and target_role in self.ROLE_SKILLS_MAP:
+            target_skills = self.ROLE_SKILLS_MAP[target_role]
+            logger.info(f"Detected target role '{target_role}' -> expanded to skills: {target_skills}")
+
+        # Get source skills (for context, not for searching)
+        source_skills = []
+        if source_role and source_role in self.ROLE_SKILLS_MAP:
+            source_skills = self.ROLE_SKILLS_MAP[source_role]
+
         return {
             'target_terms': target_terms,
-            'source_terms': source_terms
+            'source_terms': source_terms,
+            'target_role': target_role,
+            'source_role': source_role,
+            'target_skills': target_skills,
+            'source_skills': source_skills,
         }
 
     def search_programs(
@@ -451,6 +546,16 @@ class RealCSVProvider:
         intent = self._extract_intent(query)
         target_terms = set(intent['target_terms'])
         source_terms = set(intent['source_terms'])
+        target_role = intent.get('target_role')
+        target_skills = intent.get('target_skills', [])
+
+        # If we detected a target role, use the expanded skills as primary search terms
+        role_based_search = False
+        if target_role and target_skills:
+            logger.info(f"Role-based search: '{target_role}' -> searching for skills: {target_skills}")
+            role_based_search = True
+            # Replace query terms with target skills for role-based queries
+            query_terms = target_skills.copy()
 
         # Filter out common stop words that cause false matches
         stop_words = {
