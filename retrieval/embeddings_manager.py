@@ -5,12 +5,18 @@ import json
 import logging
 import os
 import pickle
+from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+# Module-level query cache (persists across instances)
+_query_cache: dict[str, np.ndarray] = {}
+_QUERY_CACHE_MAX_SIZE = 100
 
 
 class EmbeddingsManager:
@@ -174,19 +180,47 @@ class EmbeddingsManager:
             return False
 
     def embed_query(self, query: str) -> Optional[np.ndarray]:
-        """Embed a search query."""
+        """Embed a search query with caching."""
         if not self.client:
             return None
+
+        # Normalize query for cache key
+        cache_key = query.strip().lower()
+
+        # Check cache first
+        if cache_key in _query_cache:
+            logger.debug(f"Query cache hit: '{query[:50]}...'")
+            return _query_cache[cache_key]
 
         try:
             response = self.client.embeddings.create(
                 model=self.EMBEDDING_MODEL,
                 input=query
             )
-            return np.array(response.data[0].embedding)
+            embedding = np.array(response.data[0].embedding)
+
+            # Add to cache (with size limit)
+            if len(_query_cache) >= _QUERY_CACHE_MAX_SIZE:
+                # Remove oldest entry (first key)
+                oldest_key = next(iter(_query_cache))
+                del _query_cache[oldest_key]
+                logger.debug(f"Query cache full, removed oldest entry")
+
+            _query_cache[cache_key] = embedding
+            logger.debug(f"Query cached: '{query[:50]}...'")
+
+            return embedding
         except Exception as e:
             logger.error(f"Error embedding query: {e}")
             return None
+
+    def get_cache_stats(self) -> dict:
+        """Get query cache statistics."""
+        return {
+            "query_cache_size": len(_query_cache),
+            "query_cache_max": _QUERY_CACHE_MAX_SIZE,
+            "skills_cached": len(self.skill_embeddings),
+        }
 
     def find_similar_skills(
         self,
