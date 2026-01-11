@@ -2,6 +2,7 @@
 
 import os
 import uuid
+import time
 import streamlit as st
 from config.settings import Settings
 from schemas.context import AudiencePersona
@@ -150,6 +151,9 @@ st.markdown("AI-powered sales support for Udacity Enterprise")
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+        # Show response time for assistant messages
+        if message["role"] == "assistant" and "time" in message:
+            st.caption(f"Response generated in {message['time']:.1f} seconds")
 
 # Chat input
 if prompt := st.chat_input("Ask a question about Udacity programs..."):
@@ -202,19 +206,28 @@ if prompt := st.chat_input("Ask a question about Udacity programs..."):
                     ) else "Disabled (keyword search only)"
                     st.info(f"Semantic Search: {embeddings_status}")
 
-                # Process question
+                # Process question with timing
+                start_time = time.time()
                 response = orchestrator.process_question(
                     question=prompt,
                     persona=persona,
                     conversation_id=st.session_state.conversation_id,
                     company_name=company_name if company_name else None
                 )
+                elapsed_time = time.time() - start_time
 
                 # Display response
                 st.markdown(response)
 
-                # Add assistant message to chat history
-                st.session_state.messages.append({"role": "assistant", "content": response})
+                # Display response time
+                st.caption(f"Response generated in {elapsed_time:.1f} seconds")
+
+                # Add assistant message to chat history (include timing)
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": response,
+                    "time": elapsed_time
+                })
 
             except Exception as e:
                 error_msg = f"Error processing question: {e}"
