@@ -34,8 +34,9 @@ def reset_conversation():
 
 def get_orchestrator(settings: Settings) -> SalesEnablementOrchestrator:
     """Get or create orchestrator instance."""
-    if st.session_state.orchestrator is None:
-        st.session_state.orchestrator = SalesEnablementOrchestrator(settings=settings)
+    # Always create fresh orchestrator to pick up settings changes
+    # Memory persistence is handled by SQLite, not the orchestrator instance
+    st.session_state.orchestrator = SalesEnablementOrchestrator(settings=settings)
     return st.session_state.orchestrator
 
 
