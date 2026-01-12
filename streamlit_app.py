@@ -9,7 +9,7 @@ import streamlit as st
 from pathlib import Path
 from dotenv import load_dotenv
 env_path = Path(__file__).parent / ".env"
-load_dotenv(env_path)
+load_dotenv(env_path, override=True)  # Force override existing env vars
 
 from config.settings import Settings
 from schemas.context import AudiencePersona
