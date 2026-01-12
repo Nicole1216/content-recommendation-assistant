@@ -8,8 +8,9 @@ from config.settings import Settings
 from schemas.context import MergedContext, AudiencePersona
 from schemas.responses import CriticDecision
 
-# Data provider
+# Data providers
 from retrieval.real_csv_provider import RealCSVProvider
+from retrieval.azure_search_provider import AzureSearchProvider
 
 # LLM components
 from llm.factory import create_llm_client, LLMProvider
@@ -43,12 +44,10 @@ class SalesEnablementOrchestrator:
         """
         self.settings = settings or Settings()
 
-        # Initialize CSV provider
-        logger.info(f"Using CSV data source: {self.settings.csv_path}")
-        self.csv_provider = RealCSVProvider(
-            csv_path=self.settings.csv_path,
-            openai_api_key=self.settings.openai_api_key
-        )
+        # Initialize data provider (Azure Search or local CSV)
+        self.data_provider = None
+        self.csv_provider = None  # For backward compatibility
+        self._init_data_provider()
 
         # Initialize LLM client
         self.llm_client: Optional[BaseLLMClient] = None
@@ -67,6 +66,32 @@ class SalesEnablementOrchestrator:
 
         # Initialize agents
         self._init_agents()
+
+    def _init_data_provider(self):
+        """Initialize data provider (Azure Search or local CSV)."""
+        # Try Azure Search first if configured
+        if self.settings.use_azure_search and self.settings.is_azure_search_configured():
+            try:
+                self.data_provider = AzureSearchProvider(settings=self.settings)
+                if self.data_provider.is_available():
+                    logger.info(
+                        f"Using Azure AI Search: {self.settings.azure_search_index}"
+                    )
+                    # Set csv_provider to data_provider for backward compatibility
+                    self.csv_provider = self.data_provider
+                    return
+                else:
+                    logger.warning("Azure Search configured but not available, falling back to CSV")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Azure Search: {e}, falling back to CSV")
+
+        # Fall back to local CSV provider
+        logger.info(f"Using local CSV data source: {self.settings.csv_path}")
+        self.csv_provider = RealCSVProvider(
+            csv_path=self.settings.csv_path,
+            openai_api_key=self.settings.openai_api_key
+        )
+        self.data_provider = self.csv_provider
 
     def _init_llm_client(self):
         """Initialize LLM client based on settings."""
@@ -105,10 +130,11 @@ class SalesEnablementOrchestrator:
 
     def _init_react(self):
         """Initialize ReAct loop with tools."""
+        # Use data_provider (Azure Search or CSV) for tools
         tools = [
-            SearchProgramsTool(self.csv_provider),
-            GetProgramDetailsTool(self.csv_provider),
-            CompareProgramsTool(self.csv_provider),
+            SearchProgramsTool(self.data_provider),
+            GetProgramDetailsTool(self.data_provider),
+            CompareProgramsTool(self.data_provider),
         ]
         self.react_loop = ReActLoop(
             llm_client=self.llm_client,
