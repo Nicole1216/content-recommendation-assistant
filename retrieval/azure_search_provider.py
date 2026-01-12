@@ -137,6 +137,10 @@ class AzureSearchProvider:
         skill_domains_str = doc.get("skill_domains", "")
         skill_domains = [s.strip() for s in skill_domains_str.split(",") if s.strip()] if skill_domains_str else []
 
+        # Parse prerequisites
+        prereq_str = doc.get("prerequisites", "")
+        prereq_skills = [s.strip() for s in prereq_str.split(",") if s.strip()] if prereq_str else []
+
         return ProgramEntity(
             program_key=doc.get("program_key", ""),
             program_title=doc.get("program_title", ""),
@@ -144,12 +148,9 @@ class AzureSearchProvider:
             program_summary=doc.get("course_summary"),
             program_duration_hours=doc.get("duration_hours"),
             difficulty_level=doc.get("difficulty_level"),
-            skills=skills,
-            skill_subjects=skill_subjects,
+            skills_union=skills + skill_subjects,  # Combine skills arrays
             skill_domains=skill_domains,
-            prerequisites=doc.get("prerequisites"),
-            software_requirements=doc.get("software_requirements"),
-            projects=[doc.get("projects")] if doc.get("projects") else [],
+            program_prereq_skills=prereq_skills,
             courses=[]  # Not loading full course details
         )
 
@@ -207,8 +208,8 @@ class AzureSearchProvider:
             normalized_score = min(1.0, score / 10.0) if score > 0 else 0
 
             # Extract matched skills from the document
-            # These come from the skills field which is what we searched against
-            matched_skills = program.skills if program.skills else []
+            # These come from the skills_union field
+            matched_skills = program.skills_union if program.skills_union else []
 
             search_results.append(SearchResult(
                 program_entity=program,
@@ -275,14 +276,14 @@ class AzureSearchProvider:
                 program_key=prog.program_key,
                 program_title=prog.program_title,
                 course_title=None,  # Not available at program level
-                prerequisite_skills=prog.prerequisites.split(",") if prog.prerequisites else [],
-                course_skills=prog.skills,
+                prerequisite_skills=prog.program_prereq_skills,
+                course_skills=prog.skills_union,
                 third_party_tools=[],
-                software_requirements=prog.software_requirements.split(",") if prog.software_requirements else [],
+                software_requirements=[],
                 hardware_requirements=[],
                 lesson_titles=[],
                 lesson_summaries=[],
-                project_titles=prog.projects,
+                project_titles=[],
                 concept_titles=[],
                 duration_hours=prog.program_duration_hours,
                 difficulty_level=prog.difficulty_level,
