@@ -6,8 +6,10 @@ import time
 import streamlit as st
 
 # Load environment variables from .env file
+from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv()
+env_path = Path(__file__).parent / ".env"
+load_dotenv(env_path)
 
 from config.settings import Settings
 from schemas.context import AudiencePersona
