@@ -8,7 +8,7 @@ from pydantic import BaseModel
 class Settings(BaseModel):
     """Application configuration settings."""
 
-    # CSV data source (required)
+    # CSV data source (for local fallback)
     csv_path: str = "data/Udacity_Content_Catalog_Skill.csv"
 
     # LLM Provider settings
@@ -18,6 +18,12 @@ class Settings(BaseModel):
     # API Keys
     openai_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None
+
+    # Azure AI Search settings
+    azure_search_endpoint: Optional[str] = None
+    azure_search_api_key: Optional[str] = None
+    azure_search_index: str = "udacity-programs"
+    use_azure_search: bool = True  # Use Azure Search if configured, else local
 
     # Memory settings
     memory_enabled: bool = True
@@ -42,7 +48,18 @@ class Settings(BaseModel):
         if "anthropic_api_key" not in data or data["anthropic_api_key"] is None:
             data["anthropic_api_key"] = os.environ.get("ANTHROPIC_API_KEY")
 
+        # Auto-load Azure Search settings from environment
+        if "azure_search_endpoint" not in data or data["azure_search_endpoint"] is None:
+            data["azure_search_endpoint"] = os.environ.get("AZURE_SEARCH_ENDPOINT")
+
+        if "azure_search_api_key" not in data or data["azure_search_api_key"] is None:
+            data["azure_search_api_key"] = os.environ.get("AZURE_SEARCH_API_KEY")
+
         super().__init__(**data)
+
+    def is_azure_search_configured(self) -> bool:
+        """Check if Azure Search is configured."""
+        return bool(self.azure_search_endpoint and self.azure_search_api_key)
 
     def get_llm_api_key(self) -> Optional[str]:
         """Get the API key for the configured LLM provider."""

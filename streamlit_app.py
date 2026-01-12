@@ -96,6 +96,33 @@ persona_map = {
 
 st.sidebar.markdown("---")
 
+# Azure AI Search settings
+with st.sidebar.expander("Azure AI Search"):
+    use_azure_search = st.checkbox(
+        "Use Azure AI Search",
+        value=True,
+        help="Use Azure AI Search for vector retrieval (requires configuration)"
+    )
+
+    azure_search_endpoint = st.text_input(
+        "Azure Search Endpoint",
+        value=os.environ.get("AZURE_SEARCH_ENDPOINT", ""),
+        help="e.g., https://your-service.search.windows.net"
+    )
+
+    azure_search_api_key = st.text_input(
+        "Azure Search API Key",
+        value=os.environ.get("AZURE_SEARCH_API_KEY", ""),
+        type="password",
+        help="Admin or Query API key"
+    )
+
+    azure_search_index = st.text_input(
+        "Index Name",
+        value="udacity-programs",
+        help="Name of the search index"
+    )
+
 # Advanced settings
 with st.sidebar.expander("Advanced Settings"):
     top_k = st.slider(
@@ -106,9 +133,9 @@ with st.sidebar.expander("Advanced Settings"):
     )
 
     csv_path = st.text_input(
-        "CSV Data Path",
+        "CSV Data Path (fallback)",
         value="data/Udacity_Content_Catalog_Skill.csv",
-        help="Path to CSV file containing program data"
+        help="Used when Azure Search is not configured"
     )
 
     memory_enabled = st.checkbox(
@@ -174,6 +201,10 @@ if prompt := st.chat_input("Ask a question about Udacity programs..."):
                     llm_provider=llm_provider,
                     openai_api_key=openai_api_key if openai_api_key else None,
                     anthropic_api_key=anthropic_api_key if anthropic_api_key else None,
+                    azure_search_endpoint=azure_search_endpoint if azure_search_endpoint else None,
+                    azure_search_api_key=azure_search_api_key if azure_search_api_key else None,
+                    azure_search_index=azure_search_index,
+                    use_azure_search=use_azure_search,
                     top_k=top_k,
                     memory_enabled=memory_enabled,
                     react_enabled=react_enabled,
@@ -188,8 +219,13 @@ if prompt := st.chat_input("Ask a question about Udacity programs..."):
                 # Debug info
                 if show_debug:
                     st.info(f"LLM Provider: {llm_provider}")
-                    st.info(f"CSV Path: {csv_path}")
-                    st.info(f"Programs loaded: {len(orchestrator.csv_provider.programs)}")
+
+                    # Azure Search status
+                    if settings.use_azure_search and settings.is_azure_search_configured():
+                        st.info(f"Vector Search: Azure AI Search ({azure_search_index})")
+                    else:
+                        st.info(f"Vector Search: Local embeddings (CSV: {csv_path})")
+                        st.info(f"Programs loaded: {len(orchestrator.csv_provider.programs)}")
 
                     llm_status = "Enabled" if orchestrator.llm_client else "Disabled (fallback mode)"
                     st.info(f"LLM: {llm_status}")
@@ -199,12 +235,6 @@ if prompt := st.chat_input("Ask a question about Udacity programs..."):
 
                     react_status = "Enabled" if orchestrator.react_loop else "Disabled"
                     st.info(f"ReAct Loop: {react_status}")
-
-                    embeddings_status = "Enabled" if (
-                        orchestrator.csv_provider.embeddings_manager and
-                        orchestrator.csv_provider.embeddings_manager.is_available()
-                    ) else "Disabled (keyword search only)"
-                    st.info(f"Semantic Search: {embeddings_status}")
 
                 # Process question with timing
                 start_time = time.time()
