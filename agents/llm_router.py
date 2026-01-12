@@ -131,13 +131,15 @@ Analyze this question and respond with JSON."""
 
             # Build CustomerContext
             ctx_data = parsed.get("customer_context", {})
+            # Handle None values that LLM might return (use False as default for booleans)
+            hands_on = ctx_data.get("hands_on_required")
             customer_context = CustomerContext(
-                roles=ctx_data.get("roles", []),
+                roles=ctx_data.get("roles") or [],
                 scale=ctx_data.get("scale"),
                 timeline_months=ctx_data.get("timeline_months"),
                 hours_per_week=ctx_data.get("hours_per_week"),
-                skill_focus=ctx_data.get("skill_focus", []),
-                hands_on_required=ctx_data.get("hands_on_required", False)
+                skill_focus=ctx_data.get("skill_focus") or [],
+                hands_on_required=hands_on if isinstance(hands_on, bool) else False
             )
 
             # Build RetrievalPlan

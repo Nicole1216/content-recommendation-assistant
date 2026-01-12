@@ -2,21 +2,37 @@
 
 import logging
 import os
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 
 from config.settings import Settings
 from retrieval.azure.search_client import AzureSearchClient
 from schemas.aggregated import ProgramEntity
+from schemas.evidence import CSVDetail
 
 logger = logging.getLogger(__name__)
 
 
 class SearchResult:
-    """Search result with program entity and score."""
+    """Search result with program entity and score.
 
-    def __init__(self, program_entity: ProgramEntity, relevance_score: float):
+    Compatible with ProgramSearchResult interface used by ReAct tools.
+    """
+
+    def __init__(
+        self,
+        program_entity: ProgramEntity,
+        relevance_score: float,
+        matched_course_skills: Optional[List[str]] = None,
+        matched_course_skill_subjects: Optional[List[str]] = None,
+        matched_courses: Optional[List[Dict[str, str]]] = None,
+        source_columns: Optional[List[str]] = None
+    ):
         self.program_entity = program_entity
         self.relevance_score = relevance_score
+        self.matched_course_skills = matched_course_skills or []
+        self.matched_course_skill_subjects = matched_course_skill_subjects or []
+        self.matched_courses = matched_courses or []
+        self.source_columns = source_columns or []
 
 
 class AzureSearchProvider:
@@ -190,9 +206,15 @@ class AzureSearchProvider:
             # Normalize score to 0-1 range
             normalized_score = min(1.0, score / 10.0) if score > 0 else 0
 
+            # Extract matched skills from the document
+            # These come from the skills field which is what we searched against
+            matched_skills = program.skills if program.skills else []
+
             search_results.append(SearchResult(
                 program_entity=program,
-                relevance_score=normalized_score
+                relevance_score=normalized_score,
+                matched_course_skills=matched_skills,
+                source_columns=["Azure AI Search"]
             ))
 
         return search_results
@@ -230,3 +252,41 @@ class AzureSearchProvider:
     def get_index_stats(self) -> Optional[Dict[str, Any]]:
         """Get index statistics."""
         return self.search_client.get_index_stats()
+
+    def get_details(self, program_keys: List[str]) -> List[CSVDetail]:
+        """
+        Get details for compatibility with ReAct tools.
+
+        This converts Azure Search results to CSVDetail format
+        used by existing tools.
+
+        Args:
+            program_keys: List of program keys
+
+        Returns:
+            List of CSVDetail objects
+        """
+        results = []
+        programs = self.get_program_details(program_keys)
+
+        for prog in programs:
+            # Convert ProgramEntity to CSVDetail format
+            detail = CSVDetail(
+                program_key=prog.program_key,
+                program_title=prog.program_title,
+                course_title=None,  # Not available at program level
+                prerequisite_skills=prog.prerequisites.split(",") if prog.prerequisites else [],
+                course_skills=prog.skills,
+                third_party_tools=[],
+                software_requirements=prog.software_requirements.split(",") if prog.software_requirements else [],
+                hardware_requirements=[],
+                lesson_titles=[],
+                lesson_summaries=[],
+                project_titles=prog.projects,
+                concept_titles=[],
+                duration_hours=prog.program_duration_hours,
+                difficulty_level=prog.difficulty_level,
+            )
+            results.append(detail)
+
+        return results
