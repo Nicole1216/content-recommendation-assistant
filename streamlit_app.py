@@ -4,6 +4,11 @@ import os
 import uuid
 import time
 import streamlit as st
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 from config.settings import Settings
 from schemas.context import AudiencePersona
 from orchestrator import SalesEnablementOrchestrator
