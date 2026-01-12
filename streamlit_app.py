@@ -41,7 +41,19 @@ def get_orchestrator(settings: Settings) -> SalesEnablementOrchestrator:
     return st.session_state.orchestrator
 
 
-# Sidebar configuration
+# ============================================================
+# API Keys and Azure Search Configuration (from environment)
+# ============================================================
+# These are loaded from environment variables - no UI input needed
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+AZURE_SEARCH_ENDPOINT = os.environ.get("AZURE_SEARCH_ENDPOINT", "https://nicole-rag-search.search.windows.net")
+AZURE_SEARCH_API_KEY = os.environ.get("AZURE_SEARCH_API_KEY", "")
+AZURE_SEARCH_INDEX = "udacity-programs"
+
+# ============================================================
+# Sidebar Configuration
+# ============================================================
 st.sidebar.header("Configuration")
 
 # Company name input
@@ -50,31 +62,6 @@ company_name = st.sidebar.text_input(
     value="",
     placeholder="e.g., Acme Corp",
     help="Enter the customer's company name for context"
-)
-
-st.sidebar.markdown("---")
-
-# LLM Provider selection
-llm_provider = st.sidebar.selectbox(
-    "LLM Provider",
-    options=["openai", "anthropic"],
-    index=0,
-    help="Select which LLM to use for reasoning"
-)
-
-# API Keys
-openai_api_key = st.sidebar.text_input(
-    "OpenAI API Key",
-    value=os.environ.get("OPENAI_API_KEY", ""),
-    type="password",
-    help="Required for OpenAI provider and semantic search"
-)
-
-anthropic_api_key = st.sidebar.text_input(
-    "Anthropic API Key",
-    value=os.environ.get("ANTHROPIC_API_KEY", ""),
-    type="password",
-    help="Required for Anthropic provider"
 )
 
 st.sidebar.markdown("---")
@@ -96,34 +83,15 @@ persona_map = {
 
 st.sidebar.markdown("---")
 
-# Azure AI Search settings
-with st.sidebar.expander("Azure AI Search"):
-    use_azure_search = st.checkbox(
-        "Use Azure AI Search",
-        value=True,
-        help="Use Azure AI Search for vector retrieval (requires configuration)"
-    )
+# LLM Provider selection
+llm_provider = st.sidebar.selectbox(
+    "LLM Provider",
+    options=["openai", "anthropic"],
+    index=0,
+    help="Select which LLM to use for reasoning"
+)
 
-    azure_search_endpoint = st.text_input(
-        "Azure Search Endpoint",
-        value=os.environ.get("AZURE_SEARCH_ENDPOINT", ""),
-        help="e.g., https://your-service.search.windows.net"
-    )
-
-    azure_search_api_key = st.text_input(
-        "Azure Search API Key",
-        value=os.environ.get("AZURE_SEARCH_API_KEY", ""),
-        type="password",
-        help="Admin or Query API key"
-    )
-
-    azure_search_index = st.text_input(
-        "Index Name",
-        value="udacity-programs",
-        help="Name of the search index"
-    )
-
-# Advanced settings
+# Advanced settings (collapsed by default)
 with st.sidebar.expander("Advanced Settings"):
     top_k = st.slider(
         "Number of results to retrieve",
@@ -132,29 +100,11 @@ with st.sidebar.expander("Advanced Settings"):
         value=5
     )
 
-    csv_path = st.text_input(
-        "CSV Data Path (fallback)",
-        value="data/Udacity_Content_Catalog_Skill.csv",
-        help="Used when Azure Search is not configured"
-    )
-
-    memory_enabled = st.checkbox(
-        "Enable Memory",
-        value=True,
-        help="Track conversation history"
-    )
-
-    react_enabled = st.checkbox(
-        "Enable ReAct Loop",
-        value=True,
-        help="Use iterative reasoning for evidence gathering"
-    )
-
     max_react_iterations = st.slider(
         "Max ReAct Iterations",
         min_value=1,
         max_value=10,
-        value=5
+        value=3
     )
 
     show_debug = st.checkbox("Show debug info", value=False)
@@ -170,7 +120,15 @@ st.sidebar.caption(f"Conversation ID: {st.session_state.conversation_id[:8]}..."
 if company_name:
     st.sidebar.caption(f"Customer: {company_name}")
 
-# Main content
+# Show connection status
+if AZURE_SEARCH_API_KEY:
+    st.sidebar.success("Azure AI Search: Connected")
+else:
+    st.sidebar.warning("Azure AI Search: Not configured")
+
+# ============================================================
+# Main Content
+# ============================================================
 st.title("Sales Enablement Assistant")
 st.markdown("AI-powered sales support for Udacity Enterprise")
 
@@ -195,19 +153,19 @@ if prompt := st.chat_input("Ask a question about Udacity programs..."):
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
-                # Build settings
+                # Build settings from environment variables
                 settings = Settings(
-                    csv_path=csv_path,
+                    csv_path="data/Udacity_Content_Catalog_Skill.csv",
                     llm_provider=llm_provider,
-                    openai_api_key=openai_api_key if openai_api_key else None,
-                    anthropic_api_key=anthropic_api_key if anthropic_api_key else None,
-                    azure_search_endpoint=azure_search_endpoint if azure_search_endpoint else None,
-                    azure_search_api_key=azure_search_api_key if azure_search_api_key else None,
-                    azure_search_index=azure_search_index,
-                    use_azure_search=use_azure_search,
+                    openai_api_key=OPENAI_API_KEY if OPENAI_API_KEY else None,
+                    anthropic_api_key=ANTHROPIC_API_KEY if ANTHROPIC_API_KEY else None,
+                    azure_search_endpoint=AZURE_SEARCH_ENDPOINT if AZURE_SEARCH_ENDPOINT else None,
+                    azure_search_api_key=AZURE_SEARCH_API_KEY if AZURE_SEARCH_API_KEY else None,
+                    azure_search_index=AZURE_SEARCH_INDEX,
+                    use_azure_search=bool(AZURE_SEARCH_API_KEY),
                     top_k=top_k,
-                    memory_enabled=memory_enabled,
-                    react_enabled=react_enabled,
+                    memory_enabled=True,
+                    react_enabled=True,
                     max_react_iterations=max_react_iterations,
                     verbose=show_debug,
                 )
@@ -222,12 +180,11 @@ if prompt := st.chat_input("Ask a question about Udacity programs..."):
 
                     # Azure Search status
                     if settings.use_azure_search and settings.is_azure_search_configured():
-                        st.info(f"Vector Search: Azure AI Search ({azure_search_index})")
+                        st.info(f"Vector Search: Azure AI Search ({AZURE_SEARCH_INDEX})")
                     else:
-                        st.info(f"Vector Search: Local embeddings (CSV: {csv_path})")
-                        st.info(f"Programs loaded: {len(orchestrator.csv_provider.programs)}")
+                        st.info("Vector Search: Local embeddings (CSV fallback)")
 
-                    llm_status = "Enabled" if orchestrator.llm_client else "Disabled (fallback mode)"
+                    llm_status = "Enabled" if orchestrator.llm_client else "Disabled"
                     st.info(f"LLM: {llm_status}")
 
                     memory_status = "Enabled" if orchestrator.memory_store else "Disabled"
