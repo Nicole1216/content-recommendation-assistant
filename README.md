@@ -1,8 +1,12 @@
-# Sales Enablement Assistant
+# Skill-Based Content Recommendation AI Agent
 
-An agentic AI system for Udacity Enterprise sellers that provides intelligent, evidence-based responses to customer questions, tailored to specific stakeholder personas (CTO, HR, L&D).
+An agentic AI system that provides intelligent, skill-based content and product recommendations based on clients’ upskilling needs, enabling more effective, persona-aware communication and decision-making with client stakeholders (CTO, HR, L&D).
 
 ## Overview
+
+This project is an AI-powered agent designed to recommend personalized learning content based on clients' skill needs and goals. It leverages LLMs and structured program data to interpret user queries, match relevant skills, and generate tailored recommendations.
+
+The system combines semantic understanding, retrieval, and multi-agent orchestration to support decision-making for enterprise learning and sales enablement use cases.
 
 The Sales Enablement Assistant helps sellers quickly answer questions like:
 - "Do we have GenAI content for non-technical roles?"
@@ -10,6 +14,19 @@ The Sales Enablement Assistant helps sellers quickly answer questions like:
 - "Do you cover Python hands-on with real projects?"
 
 It retrieves information from two sources (catalog and CSV details), validates claims, and generates persona-specific responses with intelligent skill matching and semantic understanding.
+
+## Impact
+
+- Reduced manual effort in content discovery and recommendation workflows
+- Improved consistency and quality of responses through evidence-based validation
+- Enabled scalable, AI-assisted decision support for content recommendation scenarios
+
+## Key Highlights
+
+- Multi-agent AI architecture (Router, Specialist, Composer, Critic)
+- Combines structured and unstructured data for recommendation
+- Semantic skill understanding with taxonomy + embeddings
+- Evidence-based response generation with validation loop
 
 ## Architecture
 
@@ -264,7 +281,7 @@ pytest --cov=. --cov-report=html
 ## Project Structure
 
 ```
-sales_enablement_assistant/
+skill_based_content_recommendation_ai_agent/
 ├── agents/                      # Agent implementations
 │   ├── router.py               # Router/orchestrator agent
 │   ├── catalog_search.py       # Catalog search specialist
