@@ -6,9 +6,9 @@ An agentic AI system that provides intelligent, skill-based content and product 
 
 This project is an AI-powered agent designed to recommend personalized learning content based on clients' skill needs and goals. It leverages LLMs and structured program data to interpret user queries, match relevant skills, and generate tailored recommendations.
 
-The system combines semantic understanding, retrieval, and multi-agent orchestration to support decision-making for enterprise learning and sales enablement use cases.
+The system combines semantic understanding, retrieval, and multi-agent orchestration to support decision-making for enterprise learning use cases.
 
-The Sales Enablement Assistant helps sellers quickly answer questions like:
+The agent helps GTM teams quickly answer questions like:
 - "Do we have GenAI content for non-technical roles?"
 - "Customer wants to upskill 200 Data Analysts in 6 months—what should I propose?"
 - "Do you cover Python hands-on with real projects?"
